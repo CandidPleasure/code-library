@@ -1,0 +1,3745 @@
+/* ==========================================================
+   Package: retode
+   Author: Nwoku Ngozi Pleasure
+   Version: 1.0
+   Description: This package contains functions that detects the classical orthogonal polynomial solutions of three-term recurrence equations.
+     
+   Functions:
+     - REtoJacobi, REtoLaguerre, REtoHermite, REtoBessel, REtoDE, REtoMeixner, REtoCharlier, REtoKrawtchouk, REtoHahn, REtoDiscrete, REtoBigJ, REtoLilJ, REtoqL, REtoqB, REtoAS1, REtoAS2, REtoqM, REtoqK, REtoqH, REtoqDE
+   Usage:
+     load("retode");
+     REtoDE(Re, P[n], x);
+     REtoDiscrete(Re, P[n], x);
+     REtoqDE(Re, P[n], x, q);
+   ========================================================== */
+
+retode_info() := (
+  print("======================================"),
+  print("Package: retode"),
+  print("Version: 1.0"),
+  print("Author: Nwoku Ngozi Pleasure"),
+  print("Description: This package contains functions that detects the classical orthogonal polynomial solutions of three-term recurrence equations."),
+  print("Functions:"),
+  print("REtoJacobi, REtoLaguerre, REtoHermite, REtoBessel, REtoDE, REtoMeixner, REtoCharlier, REtoKrawtchouk, REtoHahn, REtoDiscrete, REtoBigJ, REtoLilJ, REtoqL, REtoqB, REtoAS1, REtoAS2, REtoqM, REtoqK, REtoqH, REtoSW, REtoqDE "),
+  print("Usage:"),
+  print("  load(\"retode\");"),
+  print("  REtoDE(Re, P[n], x);"),
+  print("  REtoDiscrete(Re, P[n], x);"),
+  print("  REtoqDE(Re, P[n], x, q);"),
+  print("======================================")
+);
+
+
+/* ========================================================== */
+
+REtoJacobi(RE, pn, x):= block(
+	[P, n, var, ord, firstindex, tn, An, Bn, Cn, A, betaJacobi, alphaJacobi, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	        Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	        Sol, varz, solutions, sol, sigmax, taux, lambdan, DE, DElist, density, parameters, f,g, interval:[-1,1], intervallist],
+	    
+	    /* Decompose pn to get the polynomial p and it's index n */
+	    P : part(pn, 0),
+	    n : part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	    
+	    RE: num(ratsimp(RE)),
+	    
+	    var: listofvars(RE),
+	    
+	    /* Function to obtain indices to determine backwards shift */
+	    index(var):= block([indices, order],
+	    indices: [],
+	    for term in var do (
+	        if not atom(term) and part(term, 0) = P then (
+	            indices: append(indices, [part(term, 1)])
+	        )
+	    ),
+	    order: lmax(indices) - lmin(indices),
+	    return(append([order], [lmax(indices)]))
+	    ),
+	    
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	    
+	    if ord # 2 then(
+	        error("not a three term recurrence equation")
+	        ),
+	    
+	    if firstindex = n+2 then(
+	        RE: expand(solve(subst(n = n-1, RE), P[n+1]))[1] 
+	        )
+	    else (
+	        RE: expand(solve(RE, P[n+1]))[1]
+	        ),
+	    
+	    /* Checking if RE is a polynomial with respect to x*/
+	    if hipow(RE, x) <= 0 then(
+	        error("wrong type of three term recurrence equation")
+	    ),
+	    
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	    
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then(
+	    error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    tn: collectterms(expand(subst(x=(x-g)/f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	    
+	    A: ratsimp(An),
+	    if An = 0 then(
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    tillB: factor(fullratsimp(Bn/An)),
+	    tillC: factor(fullratsimp(Cn/(An*subst(n= n-1, An)))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), n),
+	    Bdenom: collectterms(expand(denom(tillB)), n),
+	    Cnumer: collectterms(expand(num(tillC)), n),
+	    Cdenom: collectterms(expand(denom(tillC)), n),
+	    
+	    if hipow(Bnumer, n) > 2 or hipow(Bdenom, n) > 2 or hipow(Cnumer, n) > 4 or  hipow(Cdenom, n) > 4 then(
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    Btill: -((betaJacobi-alphaJacobi)*(betaJacobi+alphaJacobi))/((2*n+betaJacobi+alphaJacobi)*(2*n+betaJacobi+alphaJacobi+2)),
+	    Ctill: (4*n*(n+alphaJacobi)*(n+betaJacobi)*(n+betaJacobi+alphaJacobi))/((2*n+betaJacobi+alphaJacobi-1)*(2*n+betaJacobi+alphaJacobi)^2*(2*n+betaJacobi+alphaJacobi+1)),
+	    
+	    Btillnumer: collectterms(expand(num(Btill)), n),
+	    Btilldenom: collectterms(expand(denom(Btill)), n),
+	    Ctillnumer: collectterms(expand(num(Ctill)), n),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), n),
+	    
+	    eqB: collectterms(expand(Bnumer*Btilldenom - Bdenom*Btillnumer),n),
+	    eqC: collectterms(expand(Cnumer*Ctilldenom - Cdenom*Ctillnumer),n),
+	    
+	    Bvars: makelist(coeff(eqB, n, m), m, 0, hipow(eqB, n)),
+	    Cvars: makelist(coeff(eqC, n, m), m, 0, hipow(eqC, n)),
+	    
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    solutions: solve(Sol, [f,g,alphaJacobi,betaJacobi]),
+	    
+	    /* Incase of important parameters */
+	    if solutions = [] then(
+	        solutions: solve(Sol, varz)
+	    ),
+	    
+            solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Jacobi or a linear transformation")
+	    ),
+	    
+	    remove_elements(list, elems) := block(
+	    [current_list: list],
+	    for e in elems do (
+	        current_list: delete(e, current_list)
+	    ),
+	    return(current_list)
+	    ),
+	    parameters: remove_elements(listofvars(solutions), [f,g, alphaJacobi, betaJacobi]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x= f*x + g, ((x+1)*(x-1))*(1/f^2))) ,x),
+	        taux: factorout(subst(sol, subst(x= f*x+g, ((alphaJacobi + betaJacobi +2)*x + alphaJacobi - betaJacobi)*(1/f))), x),
+	        lambdan: factorout(subst(sol, subst(x=f*x+g, -n*(n+betaJacobi+alphaJacobi+1))),x),
+	        DE: sigmax*diff(p(n,x),x, 2) + taux*diff(p(n,x),x) + lambdan*p(n,x),
+	        DE: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DE)))), diff(p(n,x), x, 2)), diff(p(n,x), x)), p(n,x)),
+	        density: fullratsimp(1/(coeff(DE, diff(p(n,x), x, 2)))*exp(integrate((coeff(DE, diff(p(n,x), x, 1)))/(coeff(DE, diff(p(n,x), x, 2))) ,x))),
+	        
+	        for i:1 thru length(interval) do(
+	            if interval[i] = inf  or interval[i] = minf then (
+	                interval[i]: interval[i])
+	            else (
+	                interval[i]: subst(sol, ratsimp((interval[i] - g)/f)) 
+	            )
+	        ),
+	        interval: sort(interval, lambda([a,b], is(a<b))),
+	        
+	        if parameters = [] then (
+	            return([σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = J[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaJacobi), subst(sol, betaJacobi)),w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	        else(
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = J[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaJacobi), subst(sol, betaJacobi)),w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    
+	    ),
+	    
+	    if length(solutions) > 1 then(
+	        DElist: solutions,
+	        if parameters # [] then (
+	                print("Warning, parameters have the values", solutions)
+	            ),
+	       
+	        for i:1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            intervallist: [],
+	            sigmax: factorout(subst(sol, subst(x= f*x + g, ((x+1)*(x-1))*(1/f^2))) ,x),
+	            taux: factorout(subst(sol, subst(x= f*x+g, ((alphaJacobi + betaJacobi +2)*x + alphaJacobi - betaJacobi)*(1/f))), x),
+	            lambdan: factorout(subst(sol, subst(x=f*x+g, -n*(n+betaJacobi+alphaJacobi+1))),x),
+	            DE: sigmax*diff(p(n,x),x, 2) + taux*diff(p(n,x),x) + lambdan*p(n,x),
+	            DE: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DE)))), diff(p(n,x), x, 2)), diff(p(n,x), x)), p(n,x)),
+	            density: fullratsimp(1/(coeff(DE, diff(p(n,x), x, 2)))*exp(integrate((coeff(DE, diff(p(n,x), x, 1)))/(coeff(DE, diff(p(n,x), x, 2))) ,x))),
+	            
+	            for j:1 thru length(interval) do(
+	                if interval[j] = inf  or interval[j] = minf then (
+	                    intervallist: append(intervallist, [interval[j]]))
+	                else (
+	                    intervallist: append(intervallist, [subst(sol, ratsimp((interval[j] - g)/f))])
+	                )
+	            ),
+	            intervallist: sort(intervallist, lambda([a,b], is(a<b))),
+	            DElist[i]:  [σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = J[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaJacobi), subst(sol, betaJacobi)),w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = intervallist]
+	        ) 
+	    ),
+	    
+	    if length(DElist) > 1 then(
+	        print("Warning, several solutions found"),
+	        return(DElist)
+	    )
+	);
+
+
+
+/* ========================================================== */
+
+REtoLaguerre(RE, pn, x):= block(
+	[P, n, var, ord, firstindex, tn, An, Bn, Cn, A, alphaLaguerre, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	        Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	        Sol, varz, solutions, sol, sigmax, taux, lambdan, DE, DElist, density, parameters, f,g, interval:[0, inf], intervallist],
+	    
+	    
+	    /* Decompose pn to get the polynomial p and it's index n */
+	    P : part(pn, 0),
+	    n : part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	    
+	    RE: num(ratsimp(RE)),
+	    
+	    var: listofvars(RE),
+	    
+	    /* Function to obtain indices to determine backwards shift */
+	    index(var):= block([indices, order],
+	    indices: [],
+	    for term in var do (
+	        if not atom(term) and part(term, 0) = P then (
+	            indices: append(indices, [part(term, 1)])
+	        )
+	    ),
+	    order: lmax(indices) - lmin(indices),
+	    return(append([order], [lmax(indices)]))
+	    ),
+	    
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	    
+	    if ord # 2 then(
+	        error("not a three term recurrence equation")
+	        ),
+	    
+	    if firstindex = n+2 then(
+	        RE: expand(solve(subst(n = n-1, RE), P[n+1]))[1] 
+	        )
+	    else (
+	        RE: expand(solve(RE, P[n+1]))[1]
+	        ),
+	    
+	    /* Checking if RE is a polynomial with respect to x*/
+	    if hipow(RE, x) <= 0 then(
+	        error("wrong type of three term recurrence equation")
+	    ),
+	    
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	    
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then(
+	    error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    tn: collectterms(expand(subst(x=(x-g)/f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	    
+	    A: ratsimp(An),
+	    if An = 0 then(
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    tillB: factor(fullratsimp(Bn/An)),
+	    tillC: factor(fullratsimp(Cn/(An*subst(n= n-1, An)))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), n),
+	    Bdenom: collectterms(expand(denom(tillB)), n),
+	    Cnumer: collectterms(expand(num(tillC)), n),
+	    Cdenom: collectterms(expand(denom(tillC)), n),
+	    
+	    if hipow(Bnumer, n) > 2 or hipow(Bdenom, n) > 2 or hipow(Cnumer, n) > 4 or  hipow(Cdenom, n) > 4 then(
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    Btill: -2*n-alphaLaguerre-1,
+	    Ctill: n*(n+alphaLaguerre),
+	    
+	    Btillnumer: collectterms(expand(num(Btill)), n),
+	    Btilldenom: collectterms(expand(denom(Btill)), n),
+	    Ctillnumer: collectterms(expand(num(Ctill)), n),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), n),
+	    
+	    eqB: collectterms(expand(Bnumer*Btilldenom - Bdenom*Btillnumer),n),
+	    eqC: collectterms(expand(Cnumer*Ctilldenom - Cdenom*Ctillnumer),n),
+	    
+	    Bvars: makelist(coeff(eqB, n, m), m, 0, hipow(eqB, n)),
+	    Cvars: makelist(coeff(eqC, n, m), m, 0, hipow(eqC, n)),
+	    
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    solutions: solve(Sol, [f,g,alphaLaguerre]),
+	    
+	    /* Incase of important parameters */
+	    if solutions = [] then(
+	        solutions: solve(Sol, varz)
+	    ),
+   
+            solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Laguerre or a linear transformation")
+	    ),
+	    
+	    remove_elements(list, elems) := block(
+	    [current_list: list],
+	    for e in elems do (
+	        current_list: delete(e, current_list)
+	    ),
+	    return(current_list)
+	    ),
+	    parameters: remove_elements(listofvars(solutions), [f,g, alphaLaguerre]),
+	    
+	     if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x= f*x + g, x*(1/f^2))) ,x),
+	        taux: factorout(subst(sol, subst(x= f*x+g, (-x + alphaLaguerre + 1)*(1/f))), x),
+	        lambdan: factorout(subst(sol, subst(x=f*x+g, n)),x),
+	        DE: sigmax*diff(p(n,x),x, 2) + taux*diff(p(n,x),x) + lambdan*p(n,x),
+	        DE: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DE)))), diff(p(n,x), x, 2)), diff(p(n,x), x)), p(n,x)),
+	        density: fullratsimp(1/(coeff(DE, diff(p(n,x), x, 2)))*exp(integrate((coeff(DE, diff(p(n,x), x, 1)))/(coeff(DE, diff(p(n,x), x, 2))) ,x))),
+	        
+	        for i:1 thru length(interval) do(
+	            if interval[i] = inf  or interval[i] = minf then (
+	                interval[i]: interval[i])
+	            else (
+	                interval[i]: subst(sol, (interval[i] - g)/f) 
+	            )
+	        ),
+	        interval: sort(interval, lambda([a,b], is(a<b))),
+	        
+	        if parameters = [] then (
+	            return([σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = L[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaLaguerre)),w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	        else(
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = L[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaLaguerre)),w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    
+	    ),
+	    
+	    if length(solutions) > 1 then(
+	        DElist: solutions,
+	        if parameters # [] then (
+	                print("Warning, parameters have the values", solutions)
+	            ),
+	        for i:1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            intervallist: [],
+	            sigmax: factorout(subst(sol, subst(x= f*x + g, x*(1/f^2))) ,x),
+	            taux: factorout(subst(sol, subst(x= f*x+g, (-x + alphaLaguerre + 1)*(1/f))), x),
+	            lambdan: factorout(subst(sol, subst(x=f*x+g, n)),x),
+	            DE: sigmax*diff(p(n,x),x, 2) + taux*diff(p(n,x),x) + lambdan*p(n,x),
+	            DE: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DE)))), diff(p(n,x), x, 2)), diff(p(n,x), x)), p(n,x)),
+	            density: fullratsimp(1/(coeff(DE, diff(p(n,x), x, 2)))*exp(integrate((coeff(DE, diff(p(n,x), x, 1)))/(coeff(DE, diff(p(n,x), x, 2))) ,x))),
+	            
+	            for j:1 thru length(interval) do(
+	                if interval[j] = inf  or interval[j] = minf then (
+	                    intervallist: append(intervallist, [interval[j]]))
+	                else (
+	                    intervallist: append(intervallist, [subst(sol, (interval[j] - g)/f)])
+	                )
+	            ),
+	            intervallist: sort(intervallist, lambda([a,b], is(a<b))),
+	            DElist[i]: [σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = L[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaLaguerre)),w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = intervallist]
+	        ) 
+	    ),
+	    
+	    if length(DElist) > 1 then(
+	        print("Warning, several solutions found"),
+	        return(DElist)
+	    )   
+	);
+
+
+
+/* ========================================================== */
+
+REtoHermite(RE, pn, x):= block(
+	[P, n, var, ord, firstindex, tn, An, Bn, Cn, A, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	        Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	        Sol, varz, solutions, sol, sigmax, taux, lambdan, DE, DElist, density, parameters, f,g, interval:[minf, inf], intervallist],
+	    
+	    
+	    /* Decompose pn to get the polynomial p and it's index n */
+	    P : part(pn, 0),
+	    n : part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	    
+	    RE: num(ratsimp(RE)),
+	    
+	    var: listofvars(RE),
+	    
+	    /* Function to obtain indices to determine backwards shift */
+	    index(var):= block([indices, order],
+	    indices: [],
+	    for term in var do (
+	        if not atom(term) and part(term, 0) = P then (
+	            indices: append(indices, [part(term, 1)])
+	        )
+	    ),
+	    order: lmax(indices) - lmin(indices),
+	    return(append([order], [lmax(indices)]))
+	    ),
+	    
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	    
+	    if ord # 2 then(
+	        error("not a three term recurrence equation")
+	        ),
+	    
+	    if firstindex = n+2 then(
+	        RE: expand(solve(subst(n = n-1, RE), P[n+1]))[1] 
+	        )
+	    else (
+	        RE: expand(solve(RE, P[n+1]))[1]
+	        ),
+	    
+	    /* Checking if RE is a polynomial with respect to x*/
+	    if hipow(RE, x) <= 0 then(
+	        error("wrong type of three term recurrence equation")
+	    ),
+	    
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	    
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then(
+	    error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    tn: collectterms(expand(subst(x=(x-g)/f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	    
+	    A: ratsimp(An),
+	    if An = 0 then(
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    tillB: factor(fullratsimp(Bn/An)),
+	    tillC: factor(fullratsimp(Cn/(An*subst(n= n-1, An)))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), n),
+	    Bdenom: collectterms(expand(denom(tillB)), n),
+	    Cnumer: collectterms(expand(num(tillC)), n),
+	    Cdenom: collectterms(expand(denom(tillC)), n),
+	    
+	    if hipow(Bnumer, n) > 2 or hipow(Bdenom, n) > 2 or hipow(Cnumer, n) > 4 or  hipow(Cdenom, n) > 4 then(
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    Btill: 0,
+	    Ctill: n/2,
+	    
+	    Btillnumer: collectterms(expand(num(Btill)), n),
+	    Btilldenom: collectterms(expand(denom(Btill)), n),
+	    Ctillnumer: collectterms(expand(num(Ctill)), n),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), n),
+	    
+	    eqB: collectterms(expand(Bnumer*Btilldenom - Bdenom*Btillnumer),n),
+	    eqC: collectterms(expand(Cnumer*Ctilldenom - Cdenom*Ctillnumer),n),
+	    
+	    Bvars: makelist(coeff(eqB, n, m), m, 0, hipow(eqB, n)),
+	    Cvars: makelist(coeff(eqC, n, m), m, 0, hipow(eqC, n)),
+	    
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    solutions: solve(Sol, [f,g]),
+	    
+	    /* Incase of important parameters */
+	    if solutions = [] then(
+	        solutions: solve(Sol, varz)
+	    ),
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Hermite or a linear transformation")
+	    ),
+	    
+	    remove_elements(list, elems) := block(
+	    [current_list: list],
+	    for e in elems do (
+	        current_list: delete(e, current_list)
+	    ),
+	    return(current_list)
+	    ),
+	    parameters: remove_elements(listofvars(solutions), [f,g]),
+	    
+	     if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x= f*x + g, 1*(1/f^2))) ,x),
+	        taux: factorout(subst(sol, subst(x= f*x+g, (-2*x)*(1/f))), x),
+	        lambdan: factorout(subst(sol, subst(x=f*x+g, 2*n)),x),
+	        DE: sigmax*diff(p(n,x),x, 2) + taux*diff(p(n,x),x) + lambdan*p(n,x),
+	        DE: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DE)))), diff(p(n,x), x, 2)), diff(p(n,x), x)), p(n,x)),
+	        density: fullratsimp(1/(coeff(DE, diff(p(n,x), x, 2)))*exp(integrate((coeff(DE, diff(p(n,x), x, 1)))/(coeff(DE, diff(p(n,x), x, 2))) ,x))),
+	        
+	        for i:1 thru length(interval) do(
+	            if interval[i] = inf  or interval[i] = minf then (
+	                interval[i]: interval[i])
+	            else (
+	                interval[i]: subst(sol, (interval[i] - g)/f) 
+	            )
+	        ),
+	        interval: sort(interval, lambda([a,b], is(a<b))),
+	        
+	        if parameters = [] then (
+	            return([σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = H[n](subst(sol, subst(x = f * x + g, x))), w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	        else(
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = H[n](subst(sol, subst(x = f * x + g, x))), w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    
+	    ),
+	    
+	    if length(solutions) > 1 then(
+	        DElist: solutions,
+	        if parameters # [] then (
+	                print("Warning, parameters have the values", solutions)
+	            ),
+	        for i:1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            intervallist: [],
+	            sigmax:  factorout(subst(sol, subst(x= f*x + g, 1*(1/f^2))) ,x),
+	            taux: factorout(subst(sol, subst(x= f*x+g, (-2*x)*(1/f))), x),
+	            lambdan: factorout(subst(sol, subst(x=f*x+g, 2*n)),x),
+	            DE: sigmax*diff(p(n,x),x, 2) + taux*diff(p(n,x),x) + lambdan*p(n,x),
+	            DE: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DE)))), diff(p(n,x), x, 2)), diff(p(n,x), x)), p(n,x)),
+	            density: fullratsimp(1/(coeff(DE, diff(p(n,x), x, 2)))*exp(integrate((coeff(DE, diff(p(n,x), x, 1)))/(coeff(DE, diff(p(n,x), x, 2))) ,x))),
+	            
+	            for j:1 thru length(interval) do(
+	                if interval[j] = inf  or interval[j] = minf then (
+	                    intervallist: append(intervallist, [interval[j]]))
+	                else (
+	                    intervallist: append(intervallist, [subst(sol, (interval[j] - g)/f)])
+	                )
+	            ),
+	            intervallist: sort(intervallist, lambda([a,b], is(a<b))),
+	            DElist[i]: [σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = H[n](subst(sol, subst(x = f * x + g, x))), w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = intervallist]
+	        ) 
+	    ),
+	    
+	    if length(DElist) > 1 then(
+	        print("Warning, several solutions found"),
+	        return(DElist)
+	    )   
+	);
+
+
+/* ========================================================== */
+
+REtoBessel(RE, pn, x):= block(
+	[P, n, var, ord, firstindex, tn, An, Bn, Cn, A, alphaBessel, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	        Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	        Sol, varz, solutions, sol, sigmax, taux, lambdan, DE, DElist, density, parameters, f,g, interval:[0, inf], intervallist],
+	    
+	    
+	    /* Decompose pn to get the polynomial p and it's index n */
+	    P : part(pn, 0),
+	    n : part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	    
+	    RE: num(ratsimp(RE)),
+	    
+	    var: listofvars(RE),
+	    
+	    /* Function to obtain indices to determine backwards shift */
+	    index(var):= block([indices, order],
+	    indices: [],
+	    for term in var do (
+	        if not atom(term) and part(term, 0) = P then (
+	            indices: append(indices, [part(term, 1)])
+	        )
+	    ),
+	    order: lmax(indices) - lmin(indices),
+	    return(append([order], [lmax(indices)]))
+	    ),
+	    
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	    
+	    if ord # 2 then(
+	        error("not a three term recurrence equation")
+	        ),
+	    
+	    if firstindex = n+2 then(
+	        RE: expand(solve(subst(n = n-1, RE), P[n+1]))[1] 
+	        )
+	    else (
+	        RE: expand(solve(RE, P[n+1]))[1]
+	        ),
+	    
+	    /* Checking if RE is a polynomial with respect to x*/
+	    if hipow(RE, x) <= 0 then(
+	        error("wrong type of three term recurrence equation")
+	    ),
+	    
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	    
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then(
+	    error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    tn: collectterms(expand(subst(x=(x-g)/f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	    
+	    A: ratsimp(An),
+	    if An = 0 then(
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    tillB: factor(fullratsimp(Bn/An)),
+	    tillC: factor(fullratsimp(Cn/(An*subst(n= n-1, An)))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), n),
+	    Bdenom: collectterms(expand(denom(tillB)), n),
+	    Cnumer: collectterms(expand(num(tillC)), n),
+	    Cdenom: collectterms(expand(denom(tillC)), n),
+	    
+	    if hipow(Bnumer, n) > 2 or hipow(Bdenom, n) > 2 or hipow(Cnumer, n) > 4 or  hipow(Cdenom, n) > 4 then(
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    Btill: (2*alphaBessel)/((2*n+alphaBessel)*(2*n+alphaBessel+2)),
+	    Ctill: -(4*n*(n+alphaBessel))/((2*n+alphaBessel-1)*(2*n+alphaBessel)^2*(2*n+alphaBessel+1)),
+	    
+	    Btillnumer: collectterms(expand(num(Btill)), n),
+	    Btilldenom: collectterms(expand(denom(Btill)), n),
+	    Ctillnumer: collectterms(expand(num(Ctill)), n),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), n),
+	    
+	    eqB: collectterms(expand(Bnumer*Btilldenom - Bdenom*Btillnumer),n),
+	    eqC: collectterms(expand(Cnumer*Ctilldenom - Cdenom*Ctillnumer),n),
+	    
+	    Bvars: makelist(coeff(eqB, n, m), m, 0, hipow(eqB, n)),
+	    Cvars: makelist(coeff(eqC, n, m), m, 0, hipow(eqC, n)),
+	    
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    solutions: solve(Sol, [f,g,alphaBessel]),
+	    
+	    /* Incase of important parameters */
+	    if solutions = [] then(
+	        solutions: solve(Sol, varz)
+	    ),
+  
+            solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Bessel or a linear transformation")
+	    ),
+	    
+	    remove_elements(list, elems) := block(
+	    [current_list: list],
+	    for e in elems do (
+	        current_list: delete(e, current_list)
+	    ),
+	    return(current_list)
+	    ),
+	    parameters: remove_elements(listofvars(solutions), [f,g, alphaBessel]),
+	    
+	     if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x= f*x + g, (x^2)*(1/f^2))) ,x),
+	        taux: factorout(subst(sol, subst(x= f*x+g, ((alphaBessel + 2)*x + 2)*(1/f))), x),
+	        lambdan: factorout(subst(sol, subst(x=f*x+g, -n*(n+alphaBessel+1))),x),
+	        DE: sigmax*diff(p(n,x),x, 2) + taux*diff(p(n,x),x) + lambdan*p(n,x),
+	        DE: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DE)))), diff(p(n,x), x, 2)), diff(p(n,x), x)), p(n,x)),
+	        density: fullratsimp(1/(coeff(DE, diff(p(n,x), x, 2)))*exp(integrate((coeff(DE, diff(p(n,x), x, 1)))/(coeff(DE, diff(p(n,x), x, 2))) ,x))),
+	        
+	        for i:1 thru length(interval) do(
+	            if interval[i] = inf  or interval[i] = minf then (
+	                interval[i]: interval[i])
+	            else (
+	                interval[i]: subst(sol, (interval[i] - g)/f) 
+	            )
+	        ),
+	        interval: sort(interval, lambda([a,b], is(a<b))),
+	        
+	        if parameters = [] then (
+	            return([σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = B[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaBessel)), w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	        else(
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = B[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaBessel)), w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    
+	    ),
+	    
+	    if length(solutions) > 1 then(
+	        DElist: solutions,
+	        if parameters # [] then (
+	                print("Warning, parameters have the values", solutions)
+	            ),
+	        for i:1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            intervallist: [],
+	            sigmax: factorout(subst(sol, subst(x= f*x + g, (x^2)*(1/f^2))) ,x),
+	            taux: factorout(subst(sol, subst(x= f*x+g, ((alphaBessel + 2)*x + 2)*(1/f))), x),
+	            lambdan: factorout(subst(sol, subst(x=f*x+g, -n*(n+alphaBessel+1))),x),
+	            DE: sigmax*diff(p(n,x),x, 2) + taux*diff(p(n,x),x) + lambdan*p(n,x),
+	            DE: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DE)))), diff(p(n,x), x, 2)), diff(p(n,x), x)), p(n,x)),
+	            density: fullratsimp(1/(coeff(DE, diff(p(n,x), x, 2)))*exp(integrate((coeff(DE, diff(p(n,x), x, 1)))/(coeff(DE, diff(p(n,x), x, 2))) ,x))),
+	            
+	            for j:1 thru length(interval) do(
+	                if interval[j] = inf  or interval[j] = minf then (
+	                    intervallist: append(intervallist, [interval[j]]))
+	                else (
+	                    intervallist: append(intervallist, [subst(sol, (interval[j] - g)/f)])
+	                )
+	            ),
+	            intervallist: sort(intervallist, lambda([a,b], is(a<b))),
+	            DElist[i]: [σ(x) = coeff(DE, diff(p(n,x), x, 2)), τ(x) = coeff(DE, diff(p(n,x), x, 1)), λ[n] = coeff(DE, p(n,x)), 
+	                    p(n, x) = B[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaBessel)), w(x) = density, k[n+1]/k[n] = factor(subst(sol, A)), I = intervallist]
+	        ) 
+	    ),
+	    
+	    if length(DElist) > 1 then(
+	        print("Warning, several solutions found"),
+	        return(DElist)
+	    )   
+	);
+	
+
+
+/* ========================================================== */
+
+
+REtoDE(RE, pn, x) := block([results: [], result, sub_funcs, func_name],
+		    sub_funcs: [
+		        ["Has a solution as Jacobi", REtoJacobi],  
+		        ["Has a solution as Laguerre", REtoLaguerre], 
+		        ["Has a solution as Hermite", REtoHermite], 
+		        ["Has a solution as  Bessel", REtoBessel]
+		    ],
+		    
+		    /* Loop through each function in the sub-functions list */
+		    for f in sub_funcs do (
+		        func_name : first(f),
+		        /* Use errcatch to run the function and catch errors */
+		        result : errcatch(second(f)(RE, pn, x)),
+		        
+		        /* If result is not an error (empty list means error), append it to results */
+		        if result # [] then (
+		            results : append(results, [func_name, result])
+		        )
+		    ),
+		    
+		    /* Return the list of successful results with function names */
+		    if length(results) # 0 then (
+		        return(results)
+		    )
+		    else (
+		        error("No solution found")
+		    )
+		);
+
+/* ========================================================== */
+
+export(REtoJacobi, REtoLaguerre, REtoHermite, REtoBessel, REtoDE);
+
+
+/* ========================================================== */
+
+
+REtoMeixner(RE, pn, x) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, muMeixner, gammaMeixner, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, DI, DIlist, density, parameters, z, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tillB: factor(fullratsimp(Bn / An)),
+	    tillC: factor(fullratsimp(Cn / (An * subst(n = n - 1, An)))),
+	    Bnumer: collectterms(expand(num(tillB)), n),
+	    Bdenom: collectterms(expand(denom(tillB)), n),
+	    Cnumer: collectterms(expand(num(tillC)), n),
+	    Cdenom: collectterms(expand(denom(tillC)), n),
+	
+	    if hipow(Bnumer, n) > 2 or hipow(Bdenom, n) > 2 or hipow(Cnumer, n) > 6 or  hipow(Cdenom, n) > 4 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: (muMeixner * gammaMeixner + (muMeixner + 1) * n) / (muMeixner - 1),
+	    Ctill: (muMeixner*n*gammaMeixner+muMeixner*n^2-muMeixner*n)/(muMeixner^2-2*muMeixner+1),
+	
+	    Btillnumer: collectterms(expand(num(Btill)), n),
+	    Btilldenom: collectterms(expand(denom(Btill)), n),
+	    Ctillnumer: collectterms(expand(num(Ctill)), n),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), n),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), n),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), n),
+	
+	    Bvars: makelist(coeff(eqB, n, m), m, 0, hipow(eqB, n)),
+	    Cvars: makelist(coeff(eqC, n, m), m, 0, hipow(eqC, n)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	
+	    solutions: solve(Sol, [f, g, gammaMeixner, muMeixner]),
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Meixner or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	
+	    parameters: remove_elements(listofvars(solutions), [f, g, gammaMeixner, muMeixner]),
+	
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, x)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, muMeixner * gammaMeixner + (muMeixner - 1) * x)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, -(muMeixner - 1) * n)), x),
+	        DI: factor(sigmax * (F(B(p(n,x)))))+ factor(taux * (F(p(n,x)))) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), (F(B(p(n,x))))), (F(p(n,x)))), p(n, x)),
+	        density: factor((coeff(DI, (F(B(p(n,x))))) + coeff(DI, (F(p(n,x)))))/subst(x = x + 1, coeff(DI, (F(B(p(n,x))))))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	
+	        if parameters = [] then (
+	            return([σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  M[n](subst(sol, subst(x = f * x + g, x)), subst(sol, gammaMeixner), subst(sol, muMeixner)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  M[n](subst(sol, subst(x = f * x + g, x)), subst(sol, gammaMeixner), subst(sol, muMeixner)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, x)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, muMeixner * gammaMeixner + (muMeixner - 1) * x)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, -(muMeixner - 1) * n)), x),
+	            DI: factor(sigmax * (F(B(p(n,x)))))+ factor(taux * (F(p(n,x)))) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), (F(B(p(n,x))))), (F(p(n,x)))), p(n, x)),
+	            density: factor((coeff(DI, (F(B(p(n,x))))) + coeff(DI, (F(p(n,x)))))/subst(x = x + 1, coeff(DI, (F(B(p(n,x))))))),
+	            
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	
+	            DIlist[i]: [σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  M[n](subst(sol, subst(x = f * x + g, x)), subst(sol, gammaMeixner), subst(sol, muMeixner)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	    ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+/* ========================================================== */
+
+
+REtoCharlier(RE, pn, x) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, muCharlier, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, DI, DIlist, density, parameters, z, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tillB: factor(fullratsimp(Bn / An)),
+	    tillC: factor(fullratsimp(Cn / (An * subst(n = n - 1, An)))),
+	    Bnumer: collectterms(expand(num(tillB)), n),
+	    Bdenom: collectterms(expand(denom(tillB)), n),
+	    Cnumer: collectterms(expand(num(tillC)), n),
+	    Cdenom: collectterms(expand(denom(tillC)), n),
+	
+	    if hipow(Bnumer, n) > 2 or hipow(Bdenom, n) > 2 or hipow(Cnumer, n) > 6 or  hipow(Cdenom, n) > 4 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: -n-muCharlier,
+	    Ctill: muCharlier*n,
+	
+	    Btillnumer: collectterms(expand(num(Btill)), n),
+	    Btilldenom: collectterms(expand(denom(Btill)), n),
+	    Ctillnumer: collectterms(expand(num(Ctill)), n),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), n),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), n),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), n),
+	
+	    Bvars: makelist(coeff(eqB, n, m), m, 0, hipow(eqB, n)),
+	    Cvars: makelist(coeff(eqC, n, m), m, 0, hipow(eqC, n)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    solutions: solve(Sol, [f, g, muCharlier]),
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	
+            solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Charlier or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	
+	    parameters: remove_elements(listofvars(solutions), [f, g, muCharlier]),
+	
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, x)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, muCharlier - x)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, n)), x),
+	        DI: factor(sigmax * (F(B(p(n,x)))))+ factor(taux * (F(p(n,x)))) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), (F(B(p(n,x))))), (F(p(n,x)))), p(n, x)),
+	        density: factor((coeff(DI, (F(B(p(n,x))))) + coeff(DI, (F(p(n,x)))))/subst(x = x + 1, coeff(DI, (F(B(p(n,x))))))) ,
+	       
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	
+	        if parameters = [] then (
+	            return([σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) = C[n](subst(sol, subst(x = f * x + g, x)), subst(sol, muCharlier)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) = C[n](subst(sol, subst(x = f * x + g, x)), subst(sol, muCharlier)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, x)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, muCharlier - x)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g,  n)), x),
+	            DI: factor(sigmax * (F(B(p(n,x)))))+ factor(taux * (F(p(n,x)))) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), (F(B(p(n,x))))), (F(p(n,x)))), p(n, x)),
+	            density: factor((coeff(DI, (F(B(p(n,x))))) + coeff(DI, (F(p(n,x)))))/subst(x = x + 1, coeff(DI, (F(B(p(n,x)))))))  ,
+	            
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	
+	            DIlist[i]: [σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) = C[n](subst(sol, subst(x = f * x + g, x)), subst(sol, muCharlier)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	    ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+
+REtoKrawtchouk(RE, pn, x) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, pKraw, NKraw, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, DI, DIlist, density, parameters, z, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tillB: factor(fullratsimp(Bn / An)),
+	    tillC: factor(fullratsimp(Cn / (An * subst(n = n - 1, An)))),
+	    Bnumer: collectterms(expand(num(tillB)), n),
+	    Bdenom: collectterms(expand(denom(tillB)), n),
+	    Cnumer: collectterms(expand(num(tillC)), n),
+	    Cdenom: collectterms(expand(denom(tillC)), n),
+	
+	    if hipow(Bnumer, n) > 2 or hipow(Bdenom, n) > 2 or hipow(Cnumer, n) > 6 or  hipow(Cdenom, n) > 4 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: (2*n-NKraw)*pKraw-n,
+	    Ctill: (n^2+(-NKraw-1)*n)*pKraw^2+((NKraw+1)*n-n^2)*pKraw,
+	
+	    Btillnumer: collectterms(expand(num(Btill)), n),
+	    Btilldenom: collectterms(expand(denom(Btill)), n),
+	    Ctillnumer: collectterms(expand(num(Ctill)), n),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), n),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), n),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), n),
+	
+	    Bvars: makelist(coeff(eqB, n, m), m, 0, hipow(eqB, n)),
+	    Cvars: makelist(coeff(eqC, n, m), m, 0, hipow(eqC, n)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    solutions: solve(Sol, [f, g, pKraw, NKraw]),
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	    
+            solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Krawtchouk or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	
+	    parameters: remove_elements(listofvars(solutions), [f, g, pKraw, NKraw]),
+	
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, x)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, (pKraw/(1-pKraw))*NKraw - x*(1 + pKraw/(1-pKraw)))), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, n/(1-pKraw))), x),
+	        DI: factor(sigmax * (F(B(p(n,x)))))+ factor(taux * (F(p(n,x)))) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), (F(B(p(n,x))))), (F(p(n,x)))), p(n, x)),
+	        density: factor((coeff(DI, (F(B(p(n,x))))) + coeff(DI, (F(p(n,x)))))/subst(x = x + 1, coeff(DI, (F(B(p(n,x))))))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NKraw)/f)],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NKraw)/f)]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [subst(sol, (-g+NKraw)/f), "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	
+	        if parameters = [] then (
+	            return([σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  K[n](subst(sol, subst(x = f * x + g, x)), subst(sol, pKraw), subst(sol, NKraw)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  K[n](subst(sol, subst(x = f * x + g, x)), subst(sol, pKraw), subst(sol, NKraw)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, x)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, (pKraw/(1-pKraw))*NKraw - x*(1 + pKraw/(1-pKraw)))), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, n/(1-pKraw))), x),
+	            DI: factor(sigmax * (F(B(p(n,x)))))+ factor(taux * (F(p(n,x)))) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), (F(B(p(n,x))))), (F(p(n,x)))), p(n, x)),
+	            density: factor((coeff(DI, (F(B(p(n,x))))) + coeff(DI, (F(p(n,x)))))/subst(x = x + 1, coeff(DI, (F(B(p(n,x))))))),
+	            
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NKraw)/f)],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NKraw)/f)]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [subst(sol, (-g+NKraw)/f), "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	
+	
+	            DIlist[i]: [σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  K[n](subst(sol, subst(x = f * x + g, x)), subst(sol, pKraw), subst(sol, NKraw)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	    ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+
+REtoHahn(RE, pn, x) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, alphaHahn, betaHahn, NHahn, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, DI, DIlist, density, parameters, z, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tillB: factor(fullratsimp(Bn / An)),
+	    tillC: factor(fullratsimp(Cn / (An * subst(n = n - 1, An)))),
+	    Bnumer: collectterms(expand(num(tillB)), n),
+	    Bdenom: collectterms(expand(denom(tillB)), n),
+	    Cnumer: collectterms(expand(num(tillC)), n),
+	    Cdenom: collectterms(expand(denom(tillC)), n),
+	
+	    if hipow(Bnumer, n) > 2 or hipow(Bdenom, n) > 2 or hipow(Cnumer, n) > 6 or  hipow(Cdenom, n) > 4 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: -(betaHahn*n^2-alphaHahn*n^2+2*NHahn*n^2+betaHahn^2*n+2*NHahn*betaHahn*n+betaHahn*n-alphaHahn^2*n+2*NHahn*alphaHahn*n-alphaHahn*n+2*NHahn*n+NHahn*alphaHahn*betaHahn+NHahn*betaHahn+NHahn*alphaHahn^2+NHahn*alphaHahn)/
+	    ((2*n+betaHahn+alphaHahn)*(2*n+betaHahn+alphaHahn+2)),
+	    Ctill: -(n*(n-NHahn-1)*(n+alphaHahn)*(n+betaHahn)*(n+betaHahn+alphaHahn)*(n+betaHahn+alphaHahn+NHahn+1))/
+	    ((2*n+betaHahn+alphaHahn-1)*(2*n+betaHahn+alphaHahn)^2*(2*n+betaHahn+alphaHahn+1)),
+	
+	    Btillnumer: collectterms(expand(num(Btill)), n),
+	    Btilldenom: collectterms(expand(denom(Btill)), n),
+	    Ctillnumer: collectterms(expand(num(Ctill)), n),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), n),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), n),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), n),
+	
+	    Bvars: makelist(coeff(eqB, n, m), m, 0, hipow(eqB, n)),
+	    Cvars: makelist(coeff(eqC, n, m), m, 0, hipow(eqC, n)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	
+	    solutions: solve(Sol, [f, g, alphaHahn, betaHahn, NHahn]),
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	
+            solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Hahn or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	
+	    parameters: remove_elements(listofvars(solutions), [f, g, alphaHahn, betaHahn, NHahn]),
+	
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, x*(betaHahn + NHahn + 1 - x))), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, NHahn*(alphaHahn + 1) - x*(alphaHahn + betaHahn + 2))), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, n*(n+betaHahn+alphaHahn+1))), x),
+	        DI: factor(sigmax * (F(B(p(n,x)))))+ factor(taux * (F(p(n,x)))) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), (F(B(p(n,x))))), (F(p(n,x)))), p(n, x)),
+	        density: factor((coeff(DI, (F(B(p(n,x))))) + coeff(DI, (F(p(n,x)))))/subst(x = x + 1, coeff(DI, (F(B(p(n,x))))))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NHahn)/f)],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NHahn)/f)]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [subst(sol, (-g+NHahn)/f), "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  Q[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaHahn), subst(sol, betaHahn), subst(sol, NHahn)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  Q[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaHahn), subst(sol, betaHahn), subst(sol, NHahn)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, x*(betaHahn + NHahn + 1 - x))), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, NHahn*(alphaHahn + 1) - x*(alphaHahn + betaHahn + 2))), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, n*(n+betaHahn+alphaHahn+1))), x),
+	            DI: factor(sigmax * (F(B(p(n,x)))))+ factor(taux * (F(p(n,x)))) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), (F(B(p(n,x))))), (F(p(n,x)))), p(n, x)),
+	            density: factor((coeff(DI, (F(B(p(n,x))))) + coeff(DI, (F(p(n,x)))))/subst(x = x + 1, coeff(DI, (F(B(p(n,x))))))),
+	            
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NHahn)/f)],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NHahn)/f)]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [subst(sol, (-g+NHahn)/f), "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	
+	            DIlist[i]: [σ(x) = coeff(DI, (F(B(p(n,x))))), τ(x) = coeff(DI, (F(p(n,x)))), λ[n] = coeff(DI, p(n,x)),
+	                    p(n,x) =  Q[n](subst(sol, subst(x = f * x + g, x)), subst(sol, alphaHahn), subst(sol, betaHahn), subst(sol, NHahn)), 
+	                    w(x + 1)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	    ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+/* ========================================================== */
+
+
+REtoDiscrete(RE, pn, x) := block([results: [], result, sub_funcs, func_name],
+		    sub_funcs: [
+		        ["Has a solution as Meixner", REtoMeixner], 
+		        ["Has a solution as Charlier", REtoCharlier], 
+		        ["Has a solution as Krawtchouk", REtoKrawtchouk], 
+		        ["Has a solution as Hahn", REtoHahn]
+		    ],
+		    
+		    /* Loop through each function in the sub-functions list */
+		    for f in sub_funcs do (
+		        func_name : first(f),
+		        /* Use errcatch to run the function and catch errors */
+		        result : errcatch(second(f)(RE, pn, x)),
+		        
+		        /* If result is not an error (empty list means error), append it to results */
+		        if result # [] then (
+		            results : append(results, [func_name, result])
+		        )
+		    ),
+		    
+		    /* Return the list of successful results with function names */
+		    if length(results) # 0 then (
+		        return(results)
+		    )
+		    else (
+		        error("No solution found")
+		    )
+		);
+	
+
+/* ========================================================== */
+
+export(REtoMeixner, REtoCharlier, REtoKrawtchouk, REtoHahn, REtoDiscrete);
+
+
+
+/* ========================================================== */
+
+REtoBigJ(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, aB, bB, cB, N, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, sigma, tau, lambda, DI, DIlist, density, parameters, f, g, interval:[cB*q, aB*q], intervallist],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), N^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), N),
+	    Bdenom: collectterms(expand(denom(tillB)), N),
+	    Cnumer: collectterms(expand(num(tillC)), N),
+	    Cdenom: collectterms(expand(denom(tillC)), N),
+	
+	    if hipow(Bnumer, N) > 4 or hipow(Bdenom, N) > 4 or hipow(Cnumer, N) > 7 or  hipow(Cdenom, N) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: -((N*q*(N^2*aB^2*bB*cB*q+N^2*aB*bB*cB*q-N*aB*bB*cB*q-N*aB*cB*q+N^2*aB^2*bB^2*q+N^2*aB^2*bB*q-N*aB^2*bB*q-N*aB*bB*q-N*aB*bB*cB-N*aB*cB+aB*cB+cB-N*aB^2*bB-N*aB*bB+aB*bB+aB))/((N^2*aB*bB-1)*(N^2*aB*bB*q^2-1))),
+	    Ctill: -(((N-1)*N*aB*(N*aB-1)*(N*bB-1)*(N*aB*bB-1)*(cB-N*aB*bB)*(N*cB-1)*q^2)/((N^2*aB*bB-1)^2*(q-N^2*aB*bB)*(N^2*aB*bB*q-1))),
+	
+	    Btillnumer: collectterms(expand(num(Btill)), N),
+	    Btilldenom: collectterms(expand(denom(Btill)), N),
+	    Ctillnumer: collectterms(expand(num(Ctill)), N),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), N),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), N),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), N),
+	
+	    Bvars: makelist(coeff(eqB, N, m), m, 0, hipow(eqB, N)),
+	    Cvars: makelist(coeff(eqC, N, m), m, 0, hipow(eqC, N)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	
+	    solutions: solve(Sol, [f, g, aB, bB, cB]),
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	    
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Big q-Jacobi or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, aB, bB, cB]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (((x-aB*q)*(x-cB*q))/q)*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, ((aB*bB*q^2*x-x-aB*cB*q^2-aB*bB*q^2+cB*q+aB*q)/((q-1)*q))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, -(((q^n-1)*(aB*bB*q^(n+1)-1))/((q-1)^2*q^n)))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2*q^n)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2*q^n)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2*q^n)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        for i:1 thru length(interval) do(
+	            if interval[i] = inf  or interval[i] = minf then (
+	                interval[i]: interval[i])
+	            else (
+	                interval[i]: subst(sol, ratsimp((interval[i] - g)/f)) 
+	            )
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  B[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), subst(sol, bB), subst(sol, cB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  B[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), subst(sol, bB), subst(sol, cB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            intervallist: [],
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (((x-aB*q)*(x-cB*q))/q)*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, ((aB*bB*q^2*x-x-aB*cB*q^2-aB*bB*q^2+cB*q+aB*q)/((q-1)*q))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, -(((q^n-1)*(aB*bB*q^(n+1)-1))/((q-1)^2*q^n)))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2*q^n)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2*q^n)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2*q^n)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	             for j:1 thru length(interval) do(
+	                if interval[j] = inf  or interval[j] = minf then (
+	                    intervallist: append(intervallist, [interval[j]]))
+	                else (
+	                    intervallist: append(intervallist, [subst(sol, ratsimp((interval[j] - g)/f))])
+	                )
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  B[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), subst(sol, bB), subst(sol, cB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = intervallist]
+	        )
+	    ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+/* ========================================================== */
+
+REtoLilJ(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, aB, bB, N, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, sigma, tau, lambdan, lambda, DI, DIlist, density, parameters, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), N^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), N),
+	    Bdenom: collectterms(expand(denom(tillB)), N),
+	    Cnumer: collectterms(expand(num(tillC)), N),
+	    Cdenom: collectterms(expand(denom(tillC)), N),
+	
+	    if hipow(Bnumer, N) > 4 or hipow(Bdenom, N) > 4 or hipow(Cnumer, N) > 7 or  hipow(Cdenom, N) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+            Btill: -((N*(N^2*aB^2*bB*q+N^2*aB*bB*q-N*aB*bB*q-N*aB*q-N*aB*bB-N*aB+aB+1))/((N^2*aB*bB-1)*(N^2*aB*bB*q^2-1))),
+            Ctill: ((N-1)*N^2*aB*(N*aB-1)*(N*bB-1)*(N*aB*bB-1))/((N^2*aB*bB-1)^2*(N^2*aB*bB-q)*(N^2*aB*bB*q-1)),
+	
+	    Btillnumer: collectterms(expand(num(Btill)), N),
+	    Btilldenom: collectterms(expand(denom(Btill)), N),
+	    Ctillnumer: collectterms(expand(num(Ctill)), N),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), N),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), N),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), N),
+	
+	    Bvars: makelist(coeff(eqB, N, m), m, 0, hipow(eqB, N)),
+	    Cvars: makelist(coeff(eqC, N, m), m, 0, hipow(eqC, N)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	   
+	    solutions: solve(Sol, [f, g, aB, bB]),
+	    
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	    
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Little q-Jacobi or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, aB, bB]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (((x-1)*x)/q)*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, ((aB*bB*q^2*x-x-aB*q+1)/((q-1)*q))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, (-(((1-q^n)*(1-aB*bB*q^(n+1)))/((q-1)^2*q^n))))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2*q^n)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2*q^n)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2*q^n)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  p[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), subst(sol, bB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  p[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), subst(sol, bB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (((x-1)*x)/q)*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, ((aB*bB*q^2*x-x-aB*q+1)/((q-1)*q))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, (-(((1-q^n)*(1-aB*bB*q^(n+1)))/((q-1)^2*q^n))))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2*q^n)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2*q^n)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2*q^n)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  p[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), subst(sol, bB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	        ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+
+/* ========================================================== */
+
+
+REtoqL(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, s, αL, N, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, Sol1, Sol2, varz, solutions, sol, sigmax, taux, lambdan, sigma, tau, lambda, DI, DIlist, density, parameters, f, g, interval:[0, inf], intervallist],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), N^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), N),
+	    Bdenom: collectterms(expand(denom(tillB)), N),
+	    Cnumer: collectterms(expand(num(tillC)), N),
+	    Cdenom: collectterms(expand(denom(tillC)), N),
+	
+	    if hipow(Bnumer, N) > 4 or hipow(Bdenom, N) > 4 or hipow(Cnumer, N) > 7 or  hipow(Cdenom, N) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: (q^(-αL-1)*(N*q^(αL+1)+N*q-q-1))/N^2,
+	    Ctill: ((N-1)*q^(1-2*αL)*(N*q^αL-1))/N^4,
+	
+	    Btillnumer: collectterms(expand(num(Btill)), N),
+	    Btilldenom: collectterms(expand(denom(Btill)), N),
+	    Ctillnumer: collectterms(expand(num(Ctill)), N),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), N),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), N),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), N),
+	
+	    Bvars: makelist(coeff(eqB, N, m), m, 0, hipow(eqB, N)),
+	    Cvars: makelist(coeff(eqC, N, m), m, 0, hipow(eqC, N)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    /* Match any expression for αL and rest, and enforce s as an integer */
+	    matchdeclare(s, integerp),
+	
+	    /* Define the rule for transforming q^(s*αL + rest) into u^s*q^rest */
+	    defrule(q_exp1, q^(αL*s + rest), u^s * q^rest),
+	    defrule(q_exp2, q^(α*s + rest), v^s * q^rest),
+	    
+	    Sol1: apply1(Sol, q_exp1),
+	    Sol2: apply1(Sol1, q_exp2),
+	           
+	    solutions: solve(Sol2, [f,g,u]),
+	    solutions: (subst([u = q^αL, v = q^α], solutions)),
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol2, varz)
+	    ),
+	    
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    
+	
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as q-Laguerre or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	   
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, αL]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        /* Extract the equation where LHS = q^αL */
+	        eqn: first(sublist(sol, lambda([x], lhs(x) = 'q^αL))),
+	        
+	        /* Extract LHS and RHS separately */
+	        lhs_eqn: lhs(eqn),
+	        rhs_eqn: rhs(eqn),
+	        
+	        /* Solve for αL */
+	        sol_αL: solve(lhs_eqn = rhs_eqn, αL),
+	        
+	        /* Replace the extracted equation in sol with αL and its solution */
+	        sol: subst([lhs_eqn = αL, rhs_eqn = rhs(sol_αL[1])], sol),
+	        
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (x/q)*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, ((q^(αL+1)*x+q^(αL+1)-1)/((q-1)*q))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, (q^αL*(1-q^n))/(q-1)^2)), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        for i:1 thru length(interval) do(
+	            if interval[i] = inf  or interval[i] = minf then (
+	                interval[i]: interval[i])
+	            else (
+	                interval[i]: subst(sol, ratsimp((interval[i] - g)/f)) 
+	            )
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  L[n](subst(sol, subst(x = f * x + g, x)), subst(sol, αL), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", solutions),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  L[n](subst(sol, subst(x = f * x + g, x)), subst(sol, αL), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+                if parameters # [] then (
+	           print("Warning, parameters have the values", solutions)
+	         ),  
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),      
+	            /* Extract the equation where LHS = q^αL */
+	            eqn: first(sublist(sol, lambda([x], lhs(x) = 'q^αL))),
+	            
+	            /* Extract LHS and RHS separately */
+	            lhs_eqn: lhs(eqn),
+	            rhs_eqn: rhs(eqn),
+	            
+	            /* Solve for αL */
+	            sol_αL: solve(lhs_eqn = rhs_eqn, αL),
+	            
+	            /* Replace the extracted equation in sol with αL and its solution */
+	            sol: subst([lhs_eqn = αL, rhs_eqn = rhs(sol_αL[1])], sol),
+	            
+	            intervallist: [],
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (x/q)*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, ((q^(αL+1)*x+q^(αL+1)-1)/((q-1)*q))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, (q^αL*(1-q^n))/(q-1)^2)), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	             for j:1 thru length(interval) do(
+	                if interval[j] = inf  or interval[j] = minf then (
+	                    intervallist: append(intervallist, [interval[j]]))
+	                else (
+	                    intervallist: append(intervallist, [subst(sol, ratsimp((interval[j] - g)/f))])
+	                )
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  L[n](subst(sol, subst(x = f * x + g, x)), subst(sol, αL), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = intervallist]
+	        )
+	    ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+
+REtoqB(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, aB, N, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, sigma, tau, lambda, DI, DIlist, density, parameters, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), N^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), N),
+	    Bdenom: collectterms(expand(denom(tillB)), N),
+	    Cnumer: collectterms(expand(num(tillC)), N),
+	    Cdenom: collectterms(expand(denom(tillC)), N),
+	
+	    if hipow(Bnumer, N) > 4 or hipow(Bdenom, N) > 4 or hipow(Cnumer, N) > 7 or  hipow(Cdenom, N) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: (N*(N^2*aB*q-N*aB*q-q-N*aB))/((q+N^2*aB)*(N^2*aB*q+1)),
+    	    Ctill: -(((N-1)*N^3*aB*q*(q+N*aB))/((N^2*aB+1)*(q+N^2*aB)^2*(q^2+N^2*aB))),
+	
+	    Btillnumer: collectterms(expand(num(Btill)), N),
+	    Btilldenom: collectterms(expand(denom(Btill)), N),
+	    Ctillnumer: collectterms(expand(num(Ctill)), N),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), N),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), N),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), N),
+	
+	    Bvars: makelist(coeff(eqB, N, m), m, 0, hipow(eqB, N)),
+	    Cvars: makelist(coeff(eqC, N, m), m, 0, hipow(eqC, N)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    solutions: solve(Sol, [f, g, aB]),
+	    
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	    
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as q-Bessel or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, aB]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (((1-x)*x)/q)*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, ((aB*q*x+x-1)/((q-1)*q))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, (-(((1-q^n)*(aB*q^n+1))/((q-1)^2*q^n))))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2*q^n)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2*q^n)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2*q^n)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  y[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  y[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (((1-x)*x)/q)*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, ((aB*q*x+x-1)/((q-1)*q))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, (-(((1-q^n)*(aB*q^n+1))/((q-1)^2*q^n))))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2*q^n)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2*q^n)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2*q^n)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  y[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	        ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+REtoAS1(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, aB, N, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, sigma, tau, lambda, DI, DIlist, density, parameters, f, g, interval:[aB,1], intervallist],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), N^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), N),
+	    Bdenom: collectterms(expand(denom(tillB)), N),
+	    Cnumer: collectterms(expand(num(tillC)), N),
+	    Cdenom: collectterms(expand(denom(tillC)), N),
+	
+	    if hipow(Bnumer, N) > 4 or hipow(Bdenom, N) > 4 or hipow(Cnumer, N) > 7 or  hipow(Cdenom, N) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: -(N*(aB+1)),
+	    Ctill: ((N-1)*N*aB)/q,
+	
+	    Btillnumer: collectterms(expand(num(Btill)), N),
+	    Btilldenom: collectterms(expand(denom(Btill)), N),
+	    Ctillnumer: collectterms(expand(num(Ctill)), N),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), N),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), N),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), N),
+	
+	    Bvars: makelist(coeff(eqB, N, m), m, 0, hipow(eqB, N)),
+	    Cvars: makelist(coeff(eqC, N, m), m, 0, hipow(eqC, N)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	
+	    solutions: solve(Sol, [f, g, aB]),
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Al-Salam Carlitz I or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, aB]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (((1-x)*(aB-x))/q)*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, (-((x-aB-1)/((q-1)*q)))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, (q^n-1)/((q-1)^2*q^n))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2*q^n)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2*q^n)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2*q^n)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        for i:1 thru length(interval) do(
+	            if interval[i] = inf  or interval[i] = minf then (
+	                interval[i]: interval[i])
+	            else (
+	                interval[i]: subst(sol, ratsimp((interval[i] - g)/f)) 
+	            )
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  U[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  U[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            intervallist: [],
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (((1-x)*(aB-x))/q)*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, (-((x-aB-1)/((q-1)*q)))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, (q^n-1)/((q-1)^2*q^n))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2*q^n)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2*q^n)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2*q^n)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	             for j:1 thru length(interval) do(
+	                if interval[j] = inf  or interval[j] = minf then (
+	                    intervallist: append(intervallist, [interval[j]]))
+	                else (
+	                    intervallist: append(intervallist, [subst(sol, ratsimp((interval[j] - g)/f))])
+	                )
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  U[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = intervallist]
+	        )
+	    ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+
+REtoAS2(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, aB, N, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, sigma, tau, lambda, DI, DIlist, density, parameters, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), N^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), N),
+	    Bdenom: collectterms(expand(denom(tillB)), N),
+	    Cnumer: collectterms(expand(num(tillC)), N),
+	    Cdenom: collectterms(expand(denom(tillC)), N),
+	
+	    if hipow(Bnumer, N) > 4 or hipow(Bdenom, N) > 4 or hipow(Cnumer, N) > 7 or  hipow(Cdenom, N) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: -((aB+1)/N),
+	    Ctill: -(((N-1)*aB*q)/N^2),
+	
+	    Btillnumer: collectterms(expand(num(Btill)), N),
+	    Btilldenom: collectterms(expand(denom(Btill)), N),
+	    Ctillnumer: collectterms(expand(num(Ctill)), N),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), N),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), N),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), N),
+	
+	    Bvars: makelist(coeff(eqB, N, m), m, 0, hipow(eqB, N)),
+	    Cvars: makelist(coeff(eqC, N, m), m, 0, hipow(eqC, N)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	
+	    solutions: solve(Sol, [f, g, aB]),
+	    
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	    
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Al-Salam Carlitz II or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, aB]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (aB)*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, ((x-aB-1)/(q-1))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, (-((q^n-1)/(q-1)^2)))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2)),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  V[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  V[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (aB)*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, ((x-aB-1)/(q-1))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, (-((q^n-1)/(q-1)^2)))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2)),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  V[n](subst(sol, subst(x = f * x + g, x)), subst(sol, aB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	        ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+
+REtoqM(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, bB, cB, N, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, sigma, tau, lambda, DI, DIlist, density, parameters, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), N^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), N),
+	    Bdenom: collectterms(expand(denom(tillB)), N),
+	    Cnumer: collectterms(expand(num(tillC)), N),
+	    Cdenom: collectterms(expand(denom(tillC)), N),
+	
+	    if hipow(Bnumer, N) > 4 or hipow(Bdenom, N) > 4 or hipow(Cnumer, N) > 7 or  hipow(Cdenom, N) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: (N*bB*cB*q+N*cB*q-cB*q-N*q-cB)/(N^2*q),
+    	    Ctill: ((N-1)*(N*bB-1)*cB*(cB+N)*q)/N^4,
+
+	
+	    Btillnumer: collectterms(expand(num(Btill)), N),
+	    Btilldenom: collectterms(expand(denom(Btill)), N),
+	    Ctillnumer: collectterms(expand(num(Ctill)), N),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), N),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), N),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), N),
+	
+	    Bvars: makelist(coeff(eqB, N, m), m, 0, hipow(eqB, N)),
+	    Cvars: makelist(coeff(eqC, N, m), m, 0, hipow(eqC, N)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	
+	    solutions: solve(Sol, [f, g, bB, cB]),
+	    
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	    
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as q-Meixner or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, bB, cB]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, ((cB*(x-bB*q))/q)*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, ((q*x+bB*cB*q-q-cB)/((q-1)*q))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, (-((q^n-1)/(q-1)^2)))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  M[n](subst(sol, subst(x = f * x + g, x)), subst(sol, bB), subst(sol, cB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  M[n](subst(sol, subst(x = f * x + g, x)), subst(sol, bB), subst(sol, cB), q),
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, ((cB*(x-bB*q))/q)*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, ((q*x+bB*cB*q-q-cB)/((q-1)*q))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, (-((q^n-1)/(q-1)^2)))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", inf]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [minf, "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  M[n](subst(sol, subst(x = f * x + g, x)), subst(sol, bB), subst(sol, cB), q),
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	        ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+
+REtoqK(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, s, pB, NB, M, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, Sol1, Sol2, varz, solutions, sol, sigmax, taux, lambdan, DI, DIlist, density, parameters, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), M^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), M),
+	    Bdenom: collectterms(expand(denom(tillB)), M),
+	    Cnumer: collectterms(expand(num(tillC)), M),
+	    Cdenom: collectterms(expand(denom(tillC)), M),
+	
+	    if hipow(Bnumer, M) > 4 or hipow(Bdenom, M) > 4 or hipow(Cnumer, M) > 7 or  hipow(Cdenom, M) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	    
+            Btill: -((M*(M*pB*q^(NB+2)+M^2*pB^2*q^(NB+1)+M*pB*q^(NB+1)-pB*q^(NB+1)-M^2*pB*q+M*pB*q+q+M*pB))/(q^NB*(q+M^2*pB)*(M^2*pB*q+1))),
+            Ctill: -(((M-1)*M^2*pB*q^(1-2*NB)*(q+M*pB)*(M*pB*q^NB+1)*(M-q^(NB+1)))/((M^2*pB+1)*(q+M^2*pB)^2*(q^2+M^2*pB))),
+
+	
+	    Btillnumer: collectterms(expand(num(Btill)), M),
+	    Btilldenom: collectterms(expand(denom(Btill)), M),
+	    Ctillnumer: collectterms(expand(num(Ctill)), M),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), M),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), M),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), M),
+	
+	    Bvars: makelist(coeff(eqB, M, m), m, 0, hipow(eqB, M)),
+	    Cvars: makelist(coeff(eqC, M, m), m, 0, hipow(eqC, M)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    /* Match any expression for NB and rest, and enforce s as an integer */
+	    matchdeclare(s, integerp),
+	
+	    /* Define the rule for transforming q^(s*NB + rest) into u^s*q^rest */
+	    defrule(q_exp1, q^(NB*s + rest), u^s * q^rest),
+	    defrule(q_exp2, q^(N*s + rest), v^s * q^rest),
+	    
+	    Sol1: apply1(Sol, q_exp1),
+	    Sol2: apply1(Sol1, q_exp2),
+	           
+	    solutions: solve(Sol2, [f, g, pB, u]),
+	    solutions: (subst([u = q^NB, v = q^N], solutions)),
+	    
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol2, varz)
+	    ),
+	   
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as q-Krawtchouk or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, pB, NB]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        /* Extract the equation where LHS = q^NB */
+	        eqn: first(sublist(sol, lambda([x], lhs(x) = 'q^NB))),
+	        
+	        /* Extract LHS and RHS separately */
+	        lhs_eqn: lhs(eqn),
+	        rhs_eqn: rhs(eqn),
+	        
+	        /* Solve for NB */
+	        sol_NB: solve(lhs_eqn = rhs_eqn, NB),
+	        
+	        /* Replace the extracted equation in sol with NB and its solution */
+	        sol: subst([lhs_eqn = NB, rhs_eqn = rhs(sol_NB[1])], sol),
+	        
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (q^(-NB-1)*x*(q^NB*x-1))*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, (-((q^(-NB-1)*(pB*q^(NB+1)*x+q^NB*x-pB*q^(NB+1)-1))/(q-1)))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, (((q^n-1)*(pB*q^n+1))/((q-1)^2*q^n)))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(expand(num(fullratsimp(DI))), Dq(Dq(p(n, x), x, 1/q), x, q)), Dq(p(n, x), x, q)), p(n,x)),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NB)/f)],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NB)/f)]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [subst(sol, (-g+NB)/f), "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  K[n](subst(sol, subst(x = f * x + g, x)), subst(sol, pB), subst(sol, NB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", solutions),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  K[n](subst(sol, subst(x = f * x + g, x)), subst(sol, pB), subst(sol, NB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+                      
+	        if parameters # [] then (
+	           print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),  
+	            /* Extract the equation where LHS = q^NB */
+	            eqn: first(sublist(sol, lambda([x], lhs(x) = 'q^NB))),
+	            
+	            /* Extract LHS and RHS separately */
+	            lhs_eqn: lhs(eqn),
+	            rhs_eqn: rhs(eqn),
+	            
+	            /* Solve for NB */
+	            sol_NB: solve(lhs_eqn = rhs_eqn, NB),
+	            
+	            /* Replace the extracted equation in sol with NB and its solution */
+	            sol: subst([lhs_eqn = NB, rhs_eqn = rhs(sol_NB[1])], sol),
+	            
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (q^(-NB-1)*x*(q^NB*x-1))*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, (-((q^(-NB-1)*(pB*q^(NB+1)*x+q^NB*x-pB*q^(NB+1)-1))/(q-1)))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, (((q^n-1)*(pB*q^n+1))/((q-1)^2*q^n)))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(expand(num(fullratsimp(DI))), Dq(Dq(p(n, x), x, 1/q), x, q)), Dq(p(n, x), x, q)), p(n,x)),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NB)/f)],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NB)/f)]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [subst(sol, (-g+NB)/f), "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  K[n](subst(sol, subst(x = f * x + g, x)), subst(sol, pB), subst(sol, NB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	        ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+
+REtoqH(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, s, αB, βB, NB, M, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, Sol1, Sol2, varz, solutions, sol, sigmax, taux, lambdan, DI, DIlist, density, parameters, f, g, interval],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), M^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), M),
+	    Bdenom: collectterms(expand(denom(tillB)), M),
+	    Cnumer: collectterms(expand(num(tillC)), M),
+	    Cdenom: collectterms(expand(denom(tillC)), M),
+	
+	    if hipow(Bnumer, M) > 6 or hipow(Bdenom, M) > 6 or hipow(Cnumer, M) > 7 or  hipow(Cdenom, M) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: -((M*(M^2*q^(NB+2)*αB^2*βB^2+M^2*q^(NB+2)*αB^2*βB-M*q^(NB+2)*αB^2*βB-M*q^(NB+1)*αB^2*βB+M^2*q*αB^2*βB-M*q^(NB+2)*αB*βB-M*q^(NB+1)*αB*βB+q^(NB+1)*αB*βB+M^2*q*αB*βB-M*q*αB*βB-M*αB*βB+q^(NB+1)*αB-M*q*αB-M*αB+αB+1))/(q^NB*(M^2*αB*βB-1)*(M^2*q^2*αB*βB-1))),
+	    Ctill: -(((M-1)*M*(M-q^(NB+1))*αB*(M*αB-1)*(M*βB-1)*(M*αB*βB-1)*(M*q^(NB+1)*αB*βB-1))/(q^(2*NB)*(M^2*αB*βB-1)^2*(M^2*αB*βB-q)*(M^2*q*αB*βB-1))),
+	
+	    Btillnumer: collectterms(expand(num(Btill)), M),
+	    Btilldenom: collectterms(expand(denom(Btill)), M),
+	    Ctillnumer: collectterms(expand(num(Ctill)), M),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), M),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), M),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), M),
+	
+	    Bvars: makelist(coeff(eqB, M, m), m, 0, hipow(eqB, M)),
+	    Cvars: makelist(coeff(eqC, M, m), m, 0, hipow(eqC, M)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    /* Match any expression for NB and rest, and enforce s as an integer */
+	    matchdeclare(s, integerp),
+	
+	    /* Define the rule for transforming q^(s*NB + rest) into u^s*q^rest */
+	    defrule(q_exp1, q^(NB*s + rest), u^s * q^rest),
+	    defrule(q_exp2, q^(N*s + rest), v^s * q^rest),
+	    
+	    Sol1: apply1(Sol, q_exp1),
+	    Sol2: apply1(Sol1, q_exp2),
+	           
+	    solutions: solve(Sol2, [f, g, αB, βB, u]),
+	    solutions: (subst([u = q^NB, v = q^N], solutions)),
+	    
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol2, varz)
+	    ),
+	    
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as q-Hahn or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q, αB, βB, NB]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        /* Extract the equation where LHS = q^NB */
+	        eqn: first(sublist(sol, lambda([x], lhs(x) = 'q^NB))),
+	        
+	        /* Extract LHS and RHS separately */
+	        lhs_eqn: lhs(eqn),
+	        rhs_eqn: rhs(eqn),
+	        
+	        /* Solve for NB */
+	        sol_NB: solve(lhs_eqn = rhs_eqn, NB),
+	        
+	        /* Replace the extracted equation in sol with NB and its solution */
+	        sol: subst([lhs_eqn = NB, rhs_eqn = rhs(sol_NB[1])], sol),
+	    
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (-(q^(-NB-1)*(q^NB*x-1)*(q*αB-x)))*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, ((q^(-NB-1)*(q^(NB+2)*x*αB*βB-q^(NB+2)*αB*βB+q^(NB+1)*αB-q*αB-q^NB*x+1))/(q-1))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, (-(((q^n-1)*(q^(n+1)*αB*βB-1))/((q-1)^2*q^n))))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(expand(num(fullratsimp(DI))), Dq(Dq(p(n, x), x, 1/q), x, q)), Dq(p(n, x), x, q)), p(n,x)),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NB)/f)],
+	        if assoc(f, sol) > 0 then(
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NB)/f)]
+	        )
+	        elseif assoc(f, sol) < 0 then(
+	            interval: [subst(sol, (-g+NB)/f), "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  H[n](subst(sol, subst(x = f * x + g, x)), subst(sol, αB), subst(sol, βB), subst(sol, NB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", solutions),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  H[n](subst(sol, subst(x = f * x + g, x)), subst(sol, αB), subst(sol, βB), subst(sol, NB), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	           print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),  
+	            /* Extract the equation where LHS = q^NB */
+	            eqn: first(sublist(sol, lambda([x], lhs(x) = 'q^NB))),
+	            
+	            /* Extract LHS and RHS separately */
+	            lhs_eqn: lhs(eqn),
+	            rhs_eqn: rhs(eqn),
+	            
+	            /* Solve for NB */
+	            sol_NB: solve(lhs_eqn = rhs_eqn, NB),
+	            
+	            /* Replace the extracted equation in sol with NB and its solution */
+	            sol: subst([lhs_eqn = NB, rhs_eqn = rhs(sol_NB[1])], sol),
+	            
+	                
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (-(q^(-NB-1)*(q^NB*x-1)*(q*αB-x)))*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, ((q^(-NB-1)*(q^(NB+2)*x*αB*βB-q^(NB+2)*αB*βB+q^(NB+1)*αB-q*αB-q^NB*x+1))/(q-1))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, (-(((q^n-1)*(q^(n+1)*αB*βB-1))/((q-1)^2*q^n))))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(expand(num(fullratsimp(DI))), Dq(Dq(p(n, x), x, 1/q), x, q)), Dq(p(n, x), x, q)), p(n,x)),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	            interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NB)/f)],
+	            if assoc(f, sol) > 0 then(
+	                interval: [subst(sol, (-g)/f), subst(sol, (-g+1)/f), subst(sol, (-g+2)/f), "...", subst(sol, (-g+NB)/f)]
+	            )
+	            elseif assoc(f, sol) < 0 then(
+	                interval: [subst(sol, (-g+NB)/f), "...", subst(sol, (-g+2)/f), subst(sol, (-g+1)/f), subst(sol, (-g)/f)]
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  H[n](subst(sol, subst(x = f * x + g, x)), subst(sol, αB), subst(sol, βB), subst(sol, NB), q),
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval]
+	        )
+	        ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+/* ========================================================== */
+
+
+	REtoSW(RE, pn, x, q) := block(
+	    [P, n, var, ord, firstindex, tn, An, Bn, Cn, A, m, N, tillB, tillC, Bnumer, Bdenom, Cnumer, Cdenom, Btill, Ctill,
+	     Btillnumer, Btilldenom, Ctillnumer, Ctilldenom, eqB, eqC, Bvars, Cvars,
+	     Sol, varz, solutions, sol, sigmax, taux, lambdan, sigma, tau, lambda, DI, DIlist, density, parameters, f, g, interval:[0,inf], intervallist],
+	
+	    /* Decompose pn to get the polynomial p and its index n */
+	    P: part(pn, 0),
+	    n: part(pn, 1),
+	    
+	    /* Checks if RE has an equal sign */
+	    RE: if op(RE) = "=" then lhs(RE) - rhs(RE) else RE,
+	
+	    RE: num(ratsimp(RE)),
+	    var: listofvars(RE),
+	
+	    /* Function to obtain indices to determine backward shift */
+	    index(var) := block(
+	        [indices, order],
+	        indices: [],
+	        for term in var do (
+	            if not atom(term) and part(term, 0) = P then (
+	                indices: append(indices, [part(term, 1)])
+	            )
+	        ),
+	        order: lmax(indices) - lmin(indices),
+	        return(append([order], [lmax(indices)]))
+	    ),
+	
+	    ord: index(var)[1],
+	    firstindex: index(var)[2],
+	
+	    if ord # 2 then (
+	        error("not a three term recurrence equation")
+	    ),
+	
+	    if firstindex = n + 2 then (
+	        RE: expand(solve(subst(n = n - 1, RE), P[n + 1]))[1]
+	    ) else (
+	        RE: expand(solve(RE, P[n + 1]))[1]
+	    ),
+	
+	    /* Checking if RE is a polynomial with respect to x */
+	    if hipow(RE, x) <= 0 then (
+	        error("wrong type of three term recurrence equation")
+	    ),
+	
+	    tn: collectterms(coeff(rhs(RE), P[n]), x),
+	    Cn: -collectterms(coeff(rhs(RE), P[n - 1]), x),
+	
+	    if hipow(tn, x) # 1 or hipow(Cn, x) # 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	
+	    tn: collectterms(expand(subst(x = (x - g) / f, tn)), x),
+	    An: coeff(tn, x, 1),
+	    Bn: coeff(tn, x, 0),
+	
+	    A: ratsimp(An),
+	
+	    if An = 0 then (
+	        error("No classical orthogonal polynomial exists")
+	    ),
+	    
+	    matchdeclare(m, integerp),
+	    matchdeclare(rest, all),
+	
+	    defrule(q_expansion_rule, q^(n*m + rest), N^m * q^rest),
+	    
+	    tillB: factor(fullratsimp(apply1(Bn / An, q_expansion_rule))),
+	    tillC: factor(fullratsimp(apply1(Cn / (An * subst(n = n - 1, An)), q_expansion_rule))),
+	    
+	    Bnumer: collectterms(expand(num(tillB)), N),
+	    Bdenom: collectterms(expand(denom(tillB)), N),
+	    Cnumer: collectterms(expand(num(tillC)), N),
+	    Cdenom: collectterms(expand(denom(tillC)), N),
+	
+	    if hipow(Bnumer, N) > 4 or hipow(Bdenom, N) > 4 or hipow(Cnumer, N) > 7 or  hipow(Cdenom, N) > 8 then
+	        error("No classical orthogonal polynomial exists"),
+	
+	    Btill: (N*q-q-1)/(N^2*q),
+	    Ctill: -(((N-1)*q)/N^4),
+	
+	    Btillnumer: collectterms(expand(num(Btill)), N),
+	    Btilldenom: collectterms(expand(denom(Btill)), N),
+	    Ctillnumer: collectterms(expand(num(Ctill)), N),
+	    Ctilldenom: collectterms(expand(denom(Ctill)), N),
+	
+	    eqB: collectterms(expand(Bnumer * Btilldenom - Bdenom * Btillnumer), N),
+	    eqC: collectterms(expand(Cnumer * Ctilldenom - Cdenom * Ctillnumer), N),
+	
+	    Bvars: makelist(coeff(eqB, N, m), m, 0, hipow(eqB, N)),
+	    Cvars: makelist(coeff(eqC, N, m), m, 0, hipow(eqC, N)),
+	
+	    Sol: append(Bvars, Cvars),
+	    varz: listofvars(Sol),
+	    
+	    solutions: solve(Sol, [f, g]),
+	
+	    /* In case of important parameters */
+	    if solutions = [] then (
+	        solutions: solve(Sol, varz)
+	    ),
+	    solutions: sublist(solutions, lambda([sublist], not member('f=0, sublist))),
+	    
+	    if solutions = [] then (
+	        error("This recurrence equation has no classical orthogonal polynomial solution as Stieltjes-Wigert or a linear transformation")
+	    ),
+	
+	    remove_elements(list, elems) := block(
+	        [current_list: list],
+	        for e in elems do (
+	            current_list: delete(e, current_list)
+	        ),
+	        return(current_list)
+	    ),
+	    
+	    parameters: remove_elements(listofvars(solutions), [f, g, q]),
+	    
+	    if length(solutions) = 1 then (
+	        sol: first(solutions),
+	        sigmax: factorout(subst(sol, subst(x = f * x + g, (x/q)*f^2)), x),
+	        taux: factorout(subst(sol, subst(x = f * x + g, ((q*x-1)/((q-1)*q))*f)), x),
+	        lambdan: factorout(subst(sol, subst(x = f * x + g, -((q^n-1)/(q-1)^2))), x),
+	        DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	        DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	        sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	        tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	        lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	        if sigma = 0 then sigma: sigmax,
+	        if tau = 0 then tau: taux,
+	        if lambda = 0 then lambda: lambdan,
+	        density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	        for i:1 thru length(interval) do(
+	            if interval[i] = inf  or interval[i] = minf then (
+	                interval[i]: interval[i])
+	            else (
+	                interval[i]: subst(sol, ratsimp((interval[i] - g)/f)) 
+	            )
+	        ),
+	        
+	
+	        if parameters = [] then (
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  S[n](subst(sol, subst(x = f * x + g, x)), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        ) else (
+	            print("Warning, parameters have the values", sol),
+	            return([σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  S[n](subst(sol, subst(x = f * x + g, x)), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = interval])
+	        )
+	    ),
+	
+	    if length(solutions) > 1 then (
+	        DIlist: solutions,
+	        if parameters # [] then (
+	            print("Warning, parameters have the values", solutions)
+	        ),
+	
+	        for i: 1 thru length(solutions) do (
+	            sol: part(solutions, i),
+	            intervallist: [],
+	            sigmax: factorout(subst(sol, subst(x = f * x + g, (x/q)*f^2)), x),
+	            taux: factorout(subst(sol, subst(x = f * x + g, ((q*x-1)/((q-1)*q))*f)), x),
+	            lambdan: factorout(subst(sol, subst(x = f * x + g, -((q^n-1)/(q-1)^2))), x),
+	            DI: factor(sigmax * Dq(Dq(p(n, x), x, 1/q), x, q)) + factor(taux * Dq(p(n, x), x, q)) + factor( lambdan * p(n, x)),
+	            DI: collectterms(collectterms(collectterms(factor(expand(num(fullratsimp(DI)))), Dq(Dq(p(n, x), x, 1/q), x, q), Dq(p(n, x), x, q), p(n, x)))),
+	            sigma: factor(coeff(DI, (Dq(Dq(p(n, x), x, 1/q), x, q)))/((q-1)^2)/q),
+	            tau: factor(coeff(DI, (Dq(p(n, x), x, q)))/((q-1)^2)/q),
+	            lambda: factor(coeff(DI, p(n,x))/((q-1)^2)/q),
+	            if sigma = 0 then sigma: sigmax,
+	            if tau = 0 then tau: taux,
+	            if lambda = 0 then lambda: lambdan,
+	            density: factor((sigma + (q - 1)*x*tau)/(subst(x = q*x, sigma))),
+	        
+	             for j:1 thru length(interval) do(
+	                if interval[j] = inf  or interval[j] = minf then (
+	                    intervallist: append(intervallist, [interval[j]]))
+	                else (
+	                    intervallist: append(intervallist, [subst(sol, ratsimp((interval[j] - g)/f))])
+	                )
+	            ),
+	            
+	            
+	            DIlist[i]: [σ(x) = sigma, τ(x) = tau, λ[q,n] = lambda,
+	                    p(n,x) =  S[n](subst(sol, subst(x = f * x + g, x)), q), 
+	                    w(q*x)/w(x) = density, k[n + 1] / k[n] = factor(subst(sol, A)), I = intervallist]
+	        )
+	    ),
+	
+	    if length(DIlist) > 1 then (
+	        print("Warning, several solutions found"),
+	        return(DIlist)
+	    )
+	);
+
+
+
+/* ========================================================== */
+
+
+REtoqDE(RE, pn, x, q) := block([results: [], result, sub_funcs, func_name],
+		    sub_funcs: [
+		        ["Has a solution as Big q-Jacobi", REtoBigJ], 
+		        ["Has a solution as Little q-Jacobi", REtoLilJ], 
+		        ["Has a solution as q-Laguerre", REtoqL], 
+		        ["Has a solution as q-Bessel", REtoqB], 
+		        ["Has a solution as Al-Salam Carlitz I", REtoAS1], 
+		        ["Has a solution as Al-Salam Carlitz II", REtoAS2], 
+		        ["Has a solution as q-Meixner", REtoqM], 
+		        ["Has a solution as q-Krawtchouk", REtoqK], 
+		        ["Has a solution as q-Hahn", REtoqH], 
+                        ["Has a solution as Stieltjes-Wigert", REtoSW]
+		    ],
+		    
+		    /* Loop through each function in the sub-functions list */
+		    for f in sub_funcs do (
+		        func_name : first(f),
+		        /* Use errcatch to run the function and catch errors */
+		        result : errcatch(second(f)(RE, pn, x, q)),
+		        
+		        /* If result is not an error (empty list means error), append it to results */
+		        if result # [] then (
+		            results : append(results, [func_name, result])
+		        )
+		    ),
+		    
+		    /* Return the list of successful results with function names */
+		    if length(results) # 0 then (
+		        return(results)
+		    )
+		    else (
+		        error("No solution found")
+		    )
+		);
+	
+
+/* ========================================================== */
+
+
+export(REtoBigJ, REtoLilJ, REtoqL, REtoqB, REtoAS1, REtoAS2, REtoqM, REtoqK, REtoqH, REtoSW, REtoqDE);
+
+
+
+/* ========================================================== */
+
+
+
+
+
+
+
+
+
+
